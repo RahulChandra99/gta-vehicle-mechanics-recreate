@@ -73,3 +73,8 @@ Intermediate/*
 
 # Cache files for the editor to use
 DerivedDataCache/*
+Content/Vehicles/toyota-supra/source/maya2sketchfab.uasset
+Content/Assets/Car_1/car.uasset
+Content/AutomotiveMaterials/Materials/Interior/Leather/Textures/T_Leather_05_N.uasset
+Content/AutomotiveMaterials/Materials/Interior/Leather/Textures/T_Leather_06_N.uasset
+Content/AutomotiveMaterials/Materials/Interior/Leather/Textures/T_Suede_01_N.uasset

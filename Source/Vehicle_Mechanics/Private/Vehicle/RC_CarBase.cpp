@@ -9,10 +9,11 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "MaterialParameterCollection.generated.h"
 #include "Kismet/KismetMaterialLibrary.h"
+#include "NiagaraComponent.h"
 
 ARC_CarBase::ARC_CarBase()
 {
-	PrimaryActorTick.bCanEverTick = true; // Enable ticking
+	PrimaryActorTick.bCanEverTick = true;
 	
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(GetRootComponent());
@@ -27,6 +28,20 @@ ARC_CarBase::ARC_CarBase()
 	EngineSoundComp = CreateDefaultSubobject<UAudioComponent>("EngineSounds");
 	EngineSoundComp->SetupAttachment(GetRootComponent());
 
+	NS_ExhaustR = CreateDefaultSubobject<UNiagaraComponent>("ExhaustRight");
+	NS_ExhaustR->SetupAttachment(GetMesh(),TEXT("R_Exhaust"));
+	NS_ExhaustL = CreateDefaultSubobject<UNiagaraComponent>("ExhaustLeft");
+	NS_ExhaustL->SetupAttachment(GetMesh(),TEXT("L_Exhaust"));
+
+	NS_RRTrail = CreateDefaultSubobject<UNiagaraComponent>("NS_RRTrail");
+	NS_RRTrail->SetupAttachment(GetMesh(),TEXT("RR_Ground"));
+	NS_RLTrail = CreateDefaultSubobject<UNiagaraComponent>("NS_RLTrail");
+	NS_RLTrail->SetupAttachment(GetMesh(),TEXT("RL_Ground"));
+	NS_FRTrail = CreateDefaultSubobject<UNiagaraComponent>("NS_FRTrail");
+	NS_FRTrail->SetupAttachment(GetMesh(),TEXT("FR_Ground"));
+	NS_FLTrail = CreateDefaultSubobject<UNiagaraComponent>("NS_FLTrail");
+	NS_FLTrail->SetupAttachment(GetMesh(),TEXT("FL_Ground"));
+
 }
 
 void ARC_CarBase::Tick(float DeltaSeconds)
@@ -36,13 +51,17 @@ void ARC_CarBase::Tick(float DeltaSeconds)
 	
 	// Get the vehicle movement component
 	UChaosWheeledVehicleMovementComponent* VehicleMovement = Cast<UChaosWheeledVehicleMovementComponent>(GetVehicleMovementComponent());
-	if (VehicleMovement)
-	{
-		// Get the engine rotation speed
-		float EngineRotationSpeed = VehicleMovement->GetEngineRotationSpeed();
+	if (!VehicleMovement) { return ;}
+	
+	// Get the engine rotation speed
+	float RPM = VehicleMovement->GetEngineRotationSpeed();
 
-		EngineSoundComp->SetFloatParameter(TEXT("RPM"),EngineRotationSpeed);
-	}
+	EngineSoundComp->SetFloatParameter(TEXT("RPM"),RPM);
+
+	if(RPM > 1500 && RPM < 4000)
+		IncreaseSmokeExhaust();
+	else
+		DecreaseSmokeExhaust();
 }
 
 void ARC_CarBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -70,24 +89,39 @@ void ARC_CarBase::Reverse(float Value)
 {
 	GetVehicleMovementComponent()->SetBrakeInput(Value);
 
+	if(GetVehicleMovementComponent()->GetForwardSpeed() < 20)
+		return;
+
+	if(Value>0 && !NS_FRTrail->IsActive())
+	{
+		ActivateWheelTrail(false);
+	}
+	else if(Value == 0 && NS_FRTrail->IsActive())
+	{
+		DeActivateWheelTrail();
+	}
+		
 }
 
 void ARC_CarBase::Steering(float Value)
 {
 	GetVehicleMovementComponent()->SetSteeringInput(Value);
-
 }
 
 void ARC_CarBase::HandbrakePressed()
 {
 	GetVehicleMovementComponent()->SetHandbrakeInput(true);
 	BrakeLightToggle(true);
+
+	ActivateWheelTrail(true);
 }
 
 void ARC_CarBase::HandBrakeReleased()
 {
 	GetVehicleMovementComponent()->SetHandbrakeInput(false);
 	BrakeLightToggle(false);
+
+	DeActivateWheelTrail();
 }
 
 void ARC_CarBase::LookUpDown(float Value)
@@ -111,4 +145,36 @@ void ARC_CarBase::BrakeLightToggle(bool bValue)
 	{
 		UKismetMaterialLibrary::SetScalarParameterValue(GetWorld(), MPC_Car, FName("EdgeIntensity"),1);
 	}
+}
+
+void ARC_CarBase::IncreaseSmokeExhaust()
+{
+	NS_ExhaustL->SetFloatParameter(FName("SpawnRate"),300);
+	NS_ExhaustR->SetFloatParameter(FName("SpawnRate"),300);
+	
+}
+
+void ARC_CarBase::DecreaseSmokeExhaust()
+{
+	NS_ExhaustL->SetFloatParameter(FName("SpawnRate"),20);
+	NS_ExhaustR->SetFloatParameter(FName("SpawnRate"),20);
+}
+
+void ARC_CarBase::ActivateWheelTrail(bool bIsHandbrake)
+{
+	NS_RRTrail->Activate();
+	NS_RLTrail->Activate();
+
+	if(bIsHandbrake) return;
+		
+	NS_FRTrail->Activate();
+	NS_FLTrail->Activate();
+}
+
+void ARC_CarBase::DeActivateWheelTrail()
+{
+	NS_RRTrail->Deactivate();
+	NS_RLTrail->Deactivate();
+	NS_FRTrail->Deactivate();
+	NS_FLTrail->Deactivate();
 }
